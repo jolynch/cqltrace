@@ -1,0 +1,1 @@
+tshark -q -X lua_script:trace.lua -i lo -w out -b filesize:10000 -b files:1 -f "tcp port 9042 and ((tcp[((tcp[12:1] & 0xF0) >> 2):1] = 0x04) or (tcp[((tcp[12:1] & 0xF0) >> 2):1] = 0x84 and tcp[((tcp[12:1] & 0xF0) >> 2) + 12:1] = 0x04))"
