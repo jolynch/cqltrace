@@ -88,7 +88,7 @@ function decode_response()
         end
 
         print(string.format(
-            "Query [%s][subs=%s] took: [%s]ms",
+            "Query [%s][subs=%s] took: [%s]s",
             query.query, key,
             cql_response_time().value)
         )
