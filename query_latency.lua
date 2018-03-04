@@ -14,7 +14,7 @@ tshark -q -X lua_script:query_latency.lua -i lo -w out -b filesize:10000 -b file
 
 or to get all variables in the query:
 
-PRINT_SUBS= tshark -q -X lua_script:query_latency.lua -i lo -w out -b filesize:10000 -b files:2 -f "tcp port 9042"
+PRINT_BINDS= tshark -q -X lua_script:query_latency.lua -i lo -w out -b filesize:10000 -b files:2 -f "tcp port 9042"
 ]]--
 
 print("Loading Real time CQL Latency Tracer")
@@ -31,11 +31,38 @@ tcp_data = Field.new("tcp.payload")
 cql_response_to = Field.new("cql.response_to")
 cql_response_time = Field.new("cql.response_time")
 cql_bytes = Field.new("cql.bytes")
+cql_batch_type = Field.new("cql.batch_type")
+cql_batch_query_size = Field.new("cql.batch_query_size")
+cql_batch_query_type = Field.new("cql.batch_query_type")
 
 -- query_id -> CQL statement
 local prepared_statements = {}
 -- packet id -> CQL statement
 local pending_prepared_statements = {}
+
+-- batch types
+local batch_types = {"LOGGED", "UNLOGGED", "COUNTER"}
+
+function decode_batch(pinfo)
+    local query = batch_types[cql_batch_type().value + 1]
+    query = query .. " BATCH of " .. cql_batch_query_size().value .. " "
+    local query_bytes = {}
+    if cql_query_id().value then
+        if prepared_statements[tostring(cql_query_id().value)] then
+            query = query .. prepared_statements[tostring(cql_query_id().value)]
+        else
+            query = query ..tostring(cql_query_id().value)
+        end
+        if os.getenv('PRINT_BINDS') then
+            for i,b in ipairs({ cql_bytes() }) do
+                query_bytes[i] = tostring(b.value)
+            end
+        else
+            query_bytes[1] = "NA"
+        end
+        query_cache:set(pinfo.number, {query=query, values=query_bytes})
+    end
+end
 
 function decode_prepared_statement(pinfo)
     local query
@@ -81,14 +108,13 @@ function decode_response()
         query = query_cache:get(cql_response_to().value)
         local key = query.values[1]
         if key then
-            local _, question_count = string.gsub(query.query, "%?", "")
-            if os.getenv('PRINT_SUBS') then
+            if os.getenv('PRINT_BINDS') then
                 key = table.concat(query.values, ':')
             end
         end
 
         print(string.format(
-            "Query [%s][subs=%s] took: [%s]s",
+            "[%s][BINDS=%s] took: [%s]s",
             query.query, key,
             cql_response_time().value)
         )
@@ -103,8 +129,11 @@ function tap.packet(pinfo, tvb)
         return
     end
 
+    -- BATCH
+    if cql_opcode().value == 13 then
+        decode_batch(pinfo)
     -- EXECUTE
-    if cql_opcode().value == 10 then
+    elseif cql_opcode().value == 10 then
         decode_prepared_statement(pinfo)
     -- PREPARE
     elseif cql_opcode().value == 9 then
