@@ -70,8 +70,10 @@ local cls = {
 local batch_types = {"LOGGED", "UNLOGGED", "COUNTER"}
 
 -- Decoding options
-local PRINT_BINDS = os.getenv('PRINT_BINDS')
-local DECODE_PREPARED = os.getenv('DECODE_PREPARED')
+local PRINT_BINDS = os.getenv('PRINT_BINDS') == "true"
+local PRINT_PK_BIND_ONLY = os.getenv('PRINT_PK_BIND_ONLY') == "true"
+local DECODE_PREPARED = os.getenv('DECODE_PREPARED') == "true"
+
 
 function decode_batch(pinfo)
     if cql_query_id().value then
@@ -90,6 +92,9 @@ function decode_batch(pinfo)
         if PRINT_BINDS then
             for i,b in ipairs({ cql_bytes() }) do
                 query_bytes[i] = tostring(b.value)
+                if PRINT_PK_BIND_ONLY then
+                    break
+                end
             end
         end
         query_cache:set(
@@ -113,6 +118,9 @@ function decode_prepared_statement(pinfo)
         if PRINT_BINDS then
             for i,b in ipairs({ cql_bytes() }) do
                 query_bytes[i] = tostring(b.value)
+                if PRINT_PK_BIND_ONLY then
+                    break
+                end
             end
         end
 
@@ -189,7 +197,7 @@ function tap.packet(pinfo, tvb)
     elseif cql_opcode().value == 10 then
         decode_prepared_statement(pinfo)
     -- PREPARE
-    elseif cql_opcode().value == 9 then
+    elseif cql_opcode().value == 9 and DECODE_PREPARED then
         record_prepared_statement(pinfo)
     -- RESULT
     elseif cql_opcode().value == 8 then
