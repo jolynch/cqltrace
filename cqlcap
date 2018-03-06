@@ -1,0 +1,56 @@
+#!/bin/bash
+# For tracing slow queries in real time
+# Author: Joey Lynch
+
+function usage() {
+    echo "usage: cqlcap [-h] [-i interface] [-p cql_port] [-v cql_version] output"
+    echo "  -i interface    Choose the interface (e.g. lo, eth0) to capture from"
+    echo "  -p cql_port     The tcp port CQL traffic is coming into (9042)"
+    echo "  -v cql_version  The CQL version to sniff for (v4)"
+    echo "  -h              Show this help message."
+    echo "  -r              Captures just the requests. Much lower overhead, "
+    echo "                  but can only show the queries, no responses"
+    echo "  output          Save output to this file, - for stdout"
+    exit 0
+}
+
+INTERFACE='lo'
+PORT=9042
+VERSION=4
+FULL_CAP=true
+
+while getopts ":ihpv" opt; do
+    case $opt in
+        i)
+            INTERFACE=$OPTARG
+            ;;
+        h)
+            usage && exit
+            ;;
+        p)
+            PORT=$OPTARG
+            ;;
+        v)
+            VERSION=$OPTARG
+            ;;
+        r)
+            FULL_CAP=false
+            ;;
+        \?)
+            echo "Invalid option: -$OPTARG" >&2
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+OUTPUT="${1}"
+
+if [ ${FULL_CAP} == true ]; then
+    exec tcpdump -U -s0 -i ${INTERFACE} -w $OUTPUT -n "tcp port ${PORT}"
+else
+    exec tcpdump -U -s0 -i ${INTERFACE} -w $OUTPUT -n "tcp port ${PORT} and ((tcp[((tcp[12:1] & 0xF0) >> 2):1] = 0x0${VERSION}) or (tcp[((tcp[12:1] & 0xF0) >> 2):1] = 0x8${VERSION} and tcp[((tcp[12:1] & 0xF0) >> 2) + 12:1] = 0x04))"
+fi

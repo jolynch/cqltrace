@@ -3,36 +3,22 @@
 # Author: Joey Lynch
 
 function usage() {
-    echo "usage: cqltrace [-hbd] [-i interface] [-p cql_port] [-v cql_version]"
-    echo "  -i interface    Choose the interface (e.g. lo, eth0) to capture from"
-    echo "  -p cql_port     The tcp port CQL traffic is coming into (9042)"
-    echo "  -v cql_version  The CQL version to sniff for (v4)"
+    echo "usage: cqltrace [-hkd] input"
     echo "  -b              Show bound variables in prepared statements [expensive"
     echo "  -k              Show just the bound partition keys (requires -b)"
     echo "  -d              Decode prepared statements if possible"
-    exit 1
+    echo "  input           The input file to read from, use - for stdout"
+    exit 0
 }
 
-INTERFACE='lo'
-PORT=9042
-VERSION=3
 PRINT_BINDS=false
 PRINT_PK_BIND_ONLY=false
 DECODE_PREPARED=false
 
-while getopts ":ihpvbdk" opt; do
+while getopts ":hbkd" opt; do
     case $opt in
-        i)
-            INTERFACE=$OPTARG
-            ;;
         h)
-            usage && exit
-            ;;
-        p)
-            PORT=$OPTARG
-            ;;
-        v)
-            VERSION=$OPTARG
+            usage
             ;;
         b)
             PRINT_BINDS=true
@@ -50,11 +36,14 @@ while getopts ":ihpvbdk" opt; do
 done
 shift $((OPTIND-1))
 
+if [ $# -ne 1 ]; then
+    usage
+fi
+
+INPUT="${1}"
+
 export PRINT_BINDS
 export PRINT_PK_BIND_ONLY
 export DECODE_PREPARED
 
-tshark -q -X lua_script:src/query_latency.lua -i ${INTERFACE} -w /tmp/out -b filesize:10000 -b files:2 -f "tcp port ${PORT}"
-
-# For parsing only (_much_ faster, but doesn't have response times
-# tshark -q -X lua_script:query_parser.lua -i lo -w out -b filesize:10000 -b files:2 -f "tcp port 9042 and ((tcp[((tcp[12:1] & 0xF0) >> 2):1] = 0x04) or (tcp[((tcp[12:1] & 0xF0) >> 2):1] = 0x84 and tcp[((tcp[12:1] & 0xF0) >> 2) + 12:1] = 0x04))"
+exec tshark -q -X lua_script:src/query_latency.lua -r ${INPUT}
