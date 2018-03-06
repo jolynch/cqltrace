@@ -3,6 +3,8 @@
 # Author: Joey Lynch
 
 function usage() {
+    echo "Capture live CQL traffic and output to a file"
+    echo
     echo "usage: cqlcap [-h] [-i interface] [-p cql_port] [-v cql_version] output"
     echo "  -i interface    Choose the interface (e.g. lo, eth0) to capture from"
     echo "  -p cql_port     The tcp port CQL traffic is coming into (9042)"

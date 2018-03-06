@@ -3,6 +3,8 @@
 # Author: Joey Lynch
 
 function usage() {
+    echo "Trace CQL traffic from a pcap file"
+    echo
     echo "usage: cqltrace [-hkd] input"
     echo "  -b              Show bound variables in prepared statements [expensive"
     echo "  -k              Show just the bound partition keys (requires -b)"
