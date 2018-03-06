@@ -10,20 +10,18 @@
 -- Execute with:
 --[[
 
-tshark -q -X lua_script:query_latency.lua -i lo -w out -b filesize:10000 -b files:2 -f "tcp port 9042"
+Options are controlled through environment variables:
 
-or to get all variables in the query:
-
-PRINT_BINDS= tshark -q -X lua_script:query_latency.lua -i lo -w out -b filesize:10000 -b files:2 -f "tcp port 9042"
-
-Options are controlled through environment variables
-
-PRINT_BINDS. If set query bindings will be printed
-DECODE_PREPARED . Do not attempt to decode prepared statements
+PRINT_BINDS          If "true", query bindings will be printed
+PRINT_PK_BIND_ONLY   If "true", only pk bindings will be printed
+DECODE_PREPARED      If "True", decode prepared statements in the trace,
+                     outputing when you find them
 
 ]]--
 
-print("Loading Real time CQL Latency Tracer")
+io.stderr:write("Loading CQL Latency Tracer\n")
+io.stderr:flush()
+
 lru = require('lru')
 -- frame id -> query
 query_cache = lru.new(100)
@@ -142,7 +140,6 @@ function decode_normal_statement(pinfo)
 end
 
 function record_prepared_statement(pinfo)
-    print("PENDING PREPARE", pinfo.number, cql_query())
     pending_prepared_statements[pinfo.number] = cql_query().value
 end
 
@@ -158,9 +155,16 @@ function finalize_prepared_statement(pinfo, tvb)
     -- We then read the query_id directly out of the data
     local query_id = tvb:range(base + 15, length):bytes()
     local query = pending_prepared_statements[cql_response_to().value]
+    query = query.gsub(query, '\n', ';')
     prepared_statements[tostring(query_id)] = query
     pending_prepared_statements[cql_response_to().value] = nil
-    print("PREPARED", tostring(query_id), query)
+
+    print(string.format(
+        "%s|%s|PREPARE|%s",
+        tostring(query_id), query,
+        cql_response_time().value)
+    )
+
 end
 
 function decode_response()
@@ -175,7 +179,7 @@ function decode_response()
         end
 
         print(string.format(
-            "[%s][%s][BINDS=%s] took: [%s]s",
+            "%s|%s|BINDS=%s|%s",
             query[1], query[2], key,
             cql_response_time().value)
         )
