@@ -1,6 +1,11 @@
 # cqltrace
 A dynamic tracer for viewing CQL traffic in real time or offline later.
 
+This works using
+[`tshark`](https://www.wireshark.org/docs/man-pages/tshark.html)
+[lua plugins](https://wiki.wireshark.org/Lua), so you need `tshark` for this
+to work naturally. I've tested with 2.2.6+ and it seems to work.
+
 # Using it
 This provides two tools:
 1. `cqltracer`. A tool which understands any standard pcap file containing CQL traffic
