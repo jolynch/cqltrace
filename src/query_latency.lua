@@ -71,6 +71,7 @@ local batch_types = {"LOGGED", "UNLOGGED", "COUNTER"}
 local PRINT_BINDS = os.getenv('PRINT_BINDS') == "true"
 local PRINT_PK_BIND_ONLY = os.getenv('PRINT_PK_BIND_ONLY') == "true"
 local DECODE_PREPARED = os.getenv('DECODE_PREPARED') == "true"
+local REQUEST_ONLY = os.getenv('REQUEST_ONLY') == "true"
 
 
 function decode_batch(pinfo)
@@ -95,9 +96,24 @@ function decode_batch(pinfo)
                 end
             end
         end
-        query_cache:set(
-            pinfo.number, {query, query_cl, query_bytes}
-        )
+
+        if REQUEST_ONLY then
+            local key = query_bytes[1]
+            if key ~= "NA" then
+                if PRINT_BINDS then
+                    key = table.concat(binds, ':')
+                end
+            end
+
+            print(string.format(
+                "%s|%s|BINDS=%s|%s",
+                query, query_cl, key, pinfo.number)
+            )
+        else
+            query_cache:set(
+                pinfo.number, {query, query_cl, query_bytes}
+            )
+        end
     end
 end
 
@@ -122,9 +138,23 @@ function decode_prepared_statement(pinfo)
             end
         end
 
-        query_cache:set(
-            pinfo.number, {query, query_cl, query_bytes}
-        )
+        if REQUEST_ONLY then
+            local key = query_bytes[1]
+            if key ~= "NA" then
+                if PRINT_BINDS then
+                    key = table.concat(query_bytes, ':')
+                end
+            end
+
+            print(string.format(
+                "%s|%s|BINDS=%s|%s",
+                query, query_cl, key, pinfo.number)
+            )
+        else
+            query_cache:set(
+                pinfo.number, {query, query_cl, query_bytes}
+            )
+        end
     end
 end
 
@@ -133,9 +163,16 @@ function decode_normal_statement(pinfo)
         local query = cql_query().value
         local query_cl = cls[cql_query_cl().value]
         local query_bytes = {"NA"}
-        query_cache:set(
-            pinfo.number, {query, query_cl, query_bytes}
-        )
+        if REQUEST_ONLY then
+            print(string.format(
+                "%s|%s|NA|%s",
+                query, query_cl, pinfo.number)
+            )
+        else
+            query_cache:set(
+                pinfo.number, {query, query_cl, query_bytes}
+            )
+        end
     end
 end
 
@@ -168,6 +205,14 @@ function finalize_prepared_statement(pinfo, tvb)
 end
 
 function decode_response()
+    if cql_response_to() and REQUEST_ONLY then
+        print(string.format(
+            "%s|NA|NA|%s",
+            cql_response_to().value, cql_response_time().value)
+        )
+        return
+    end
+
     if cql_response_to() and query_cache:get(cql_response_to().value) then
         local query = query_cache:get(cql_response_to().value)
         local binds = query[3]

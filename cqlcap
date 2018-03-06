@@ -19,7 +19,7 @@ PORT=9042
 VERSION=4
 FULL_CAP=true
 
-while getopts ":ihpv" opt; do
+while getopts ":i:hp:v:r" opt; do
     case $opt in
         i)
             INTERFACE=$OPTARG
@@ -43,11 +43,11 @@ while getopts ":ihpv" opt; do
 done
 shift $((OPTIND-1))
 
-if [ $# -ne 1 ]; then
+OUTPUT="${1}"
+
+if [ -z "$OUTPUT" ]; then
     usage
 fi
-
-OUTPUT="${1}"
 
 if [ ${FULL_CAP} == true ]; then
     exec tcpdump -U -s0 -i ${INTERFACE} -w $OUTPUT -n "tcp port ${PORT}"

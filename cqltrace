@@ -7,6 +7,8 @@ function usage() {
     echo "  -b              Show bound variables in prepared statements [expensive"
     echo "  -k              Show just the bound partition keys (requires -b)"
     echo "  -d              Decode prepared statements if possible"
+    echo "  -r              Parse queries only, no latency. Use this with"
+    echo "                  the -r option in cqlcap for maximum performance"
     echo "  input           The input file to read from, use - for stdout"
     exit 0
 }
@@ -14,8 +16,9 @@ function usage() {
 PRINT_BINDS=false
 PRINT_PK_BIND_ONLY=false
 DECODE_PREPARED=false
+REQUEST_ONLY=false
 
-while getopts ":hbkd" opt; do
+while getopts ":hbkdr" opt; do
     case $opt in
         h)
             usage
@@ -28,6 +31,9 @@ while getopts ":hbkd" opt; do
             ;;
         k)
             PRINT_PK_BIND_ONLY=true
+            ;;
+        r)
+            REQUEST_ONLY=true
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -45,5 +51,6 @@ INPUT="${1}"
 export PRINT_BINDS
 export PRINT_PK_BIND_ONLY
 export DECODE_PREPARED
+export REQUEST_ONLY
 
 exec tshark -q -X lua_script:src/query_latency.lua -r ${INPUT}
