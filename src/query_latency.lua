@@ -31,6 +31,8 @@ query_cache = lru.new(100)
 ip_hdr_len = Field.new("ip.hdr_len")
 tcp_hdr_len = Field.new("tcp.hdr_len")
 
+ip_source = Field.new("ip.dst")
+
 -- CQL fields
 cql_query = Field.new("cql.string")
 cql_opcode = Field.new("cql.opcode")
@@ -75,7 +77,7 @@ local REQUEST_ONLY = os.getenv('REQUEST_ONLY') == "true"
 
 
 function decode_batch(pinfo)
-    if cql_query_id().value then
+    if cql_query_id() and cql_query_id().value then
         local query = (
             batch_types[cql_batch_type().value + 1] ..
             " BATCH of " .. cql_batch_query_size().value .. " "
@@ -106,7 +108,8 @@ function decode_batch(pinfo)
             end
 
             print(string.format(
-                "%s|%s|BINDS=%s|%s",
+                "%s|%s|%s|BINDS=%s|%s",
+                ip_source().value,
                 query, query_cl, key, pinfo.number)
             )
         else
@@ -118,7 +121,7 @@ function decode_batch(pinfo)
 end
 
 function decode_prepared_statement(pinfo)
-    if cql_query_id().value then
+    if cql_query_id() and cql_query_id().value then
         local query
         local query_bytes = {"NA"}
         local query_cl = cls[cql_query_cl().value]
@@ -147,8 +150,8 @@ function decode_prepared_statement(pinfo)
             end
 
             print(string.format(
-                "%s|%s|BINDS=%s|%s",
-                query, query_cl, key, pinfo.number)
+                "%s|%s|%s|BINDS=%s|%s",
+                ip_source().value, query, query_cl, key, pinfo.number)
             )
         else
             query_cache:set(
@@ -165,8 +168,8 @@ function decode_normal_statement(pinfo)
         local query_bytes = {"NA"}
         if REQUEST_ONLY then
             print(string.format(
-                "%s|%s|NA|%s",
-                query, query_cl, pinfo.number)
+                "%s|%s|%s|NA|%s",
+                ip_source().value, query, query_cl, pinfo.number)
             )
         else
             query_cache:set(
@@ -197,7 +200,8 @@ function finalize_prepared_statement(pinfo, tvb)
     pending_prepared_statements[cql_response_to().value] = nil
 
     print(string.format(
-        "%s|%s|PREPARE|%s",
+        "%s|%s|%s|PREPARE|%s",
+        ip_source().value,
         tostring(query_id), query,
         cql_response_time().value)
     )
@@ -207,7 +211,8 @@ end
 function decode_response()
     if cql_response_to() and REQUEST_ONLY then
         print(string.format(
-            "%s|NA|NA|%s",
+            "%s|%s|NA|NA|%s",
+            ip_source().value,
             cql_response_to().value, cql_response_time().value)
         )
         return
@@ -224,7 +229,8 @@ function decode_response()
         end
 
         print(string.format(
-            "%s|%s|BINDS=%s|%s",
+            "%s|%s|%s|BINDS=%s|%s",
+            ip_source().value,
             query[1], query[2], key,
             cql_response_time().value)
         )
@@ -250,7 +256,7 @@ function tap.packet(pinfo, tvb)
         record_prepared_statement(pinfo)
     -- RESULT
     elseif cql_opcode().value == 8 then
-        if cql_result_kind().value == 4 and DECODE_PREPARED then
+        if cql_result_kind() and cql_result_kind().value == 4 and DECODE_PREPARED then
             finalize_prepared_statement(pinfo, tvb)
         else
             decode_response()
