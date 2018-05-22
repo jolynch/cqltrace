@@ -19,8 +19,13 @@ DECODE_PREPARED      If "True", decode prepared statements in the trace,
 
 ]]--
 
-io.stderr:write("Loading CQL Latency Tracer\n")
-io.stderr:flush()
+
+local SHOW_HEADER = os.getenv('SHOW_HEADER') == "true"
+if SHOW_HEADER then
+    io.stderr:write("Loading CQL Latency Tracer\n")
+    io.stderr:write("SOURCE IP|STATEMENT ID|CONSISTENCY LEVEL|BOUND VARIABLES|LATENCY")
+    io.stderr:flush()
+end
 
 lru = require('lru')
 -- frame id -> query
@@ -32,6 +37,7 @@ ip_hdr_len = Field.new("ip.hdr_len")
 tcp_hdr_len = Field.new("tcp.hdr_len")
 
 ip_source = Field.new("ip.dst")
+port_source = Field.new("tcp.dstport")
 
 -- CQL fields
 cql_query = Field.new("cql.string")
@@ -108,8 +114,8 @@ function decode_batch(pinfo)
             end
 
             print(string.format(
-                "%s|%s|%s|BINDS=%s|%s",
-                ip_source().value,
+                "%s:%d|%s|%s|BINDS=%s|%s",
+                ip_source().value, port_source().value,
                 query, query_cl, key, pinfo.number)
             )
         else
@@ -150,8 +156,9 @@ function decode_prepared_statement(pinfo)
             end
 
             print(string.format(
-                "%s|%s|%s|BINDS=%s|%s",
-                ip_source().value, query, query_cl, key, pinfo.number)
+                "%s:%d|%s|%s|BINDS=%s|%s",
+                ip_source().value, port_source().value,
+                query, query_cl, key, pinfo.number)
             )
         else
             query_cache:set(
@@ -168,8 +175,9 @@ function decode_normal_statement(pinfo)
         local query_bytes = {"NA"}
         if REQUEST_ONLY then
             print(string.format(
-                "%s|%s|%s|NA|%s",
-                ip_source().value, query, query_cl, pinfo.number)
+                "%s:%d|%s|%s|NA|%s",
+                ip_source().value, port_source().value,
+                query, query_cl, pinfo.number)
             )
         else
             query_cache:set(
@@ -200,8 +208,8 @@ function finalize_prepared_statement(pinfo, tvb)
     pending_prepared_statements[cql_response_to().value] = nil
 
     print(string.format(
-        "%s|%s|%s|PREPARE|%s",
-        ip_source().value,
+        "%s:%d|%s|%s|PREPARE|%s",
+        ip_source().value, port_source().value,
         tostring(query_id), query,
         cql_response_time().value)
     )
@@ -211,8 +219,8 @@ end
 function decode_response()
     if cql_response_to() and REQUEST_ONLY then
         print(string.format(
-            "%s|%s|NA|NA|%s",
-            ip_source().value,
+            "%s:%d|%s|NA|NA|%s",
+            ip_source().value, port_source().value,
             cql_response_to().value, cql_response_time().value)
         )
         return
@@ -229,8 +237,8 @@ function decode_response()
         end
 
         print(string.format(
-            "%s|%s|%s|BINDS=%s|%s",
-            ip_source().value,
+            "%s:%d|%s|%s|BINDS=%s|%s",
+            ip_source().value, port_source().value,
             query[1], query[2], key,
             cql_response_time().value)
         )

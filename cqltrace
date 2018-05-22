@@ -5,12 +5,13 @@
 function usage() {
     echo "Trace CQL traffic from a pcap file"
     echo
-    echo "usage: cqltrace [-hkd] input"
-    echo "  -b              Show bound variables in prepared statements [expensive"
+    echo "usage: cqltrace [-bkd] input"
+    echo "  -b              Show bound variables in prepared statements [expensive]"
     echo "  -k              Show just the bound partition keys (requires -b)"
     echo "  -d              Decode prepared statements if possible"
-    echo "  -r              Parse queries only, no latency. Use this with"
-    echo "                  the -r option in cqlcap for maximum performance"
+    echo "  -r              Parse queries only, with no latency measurements. Use this"
+    echo "                  with the -r option in cqlcap for maximum performance"
+    echo "  -H              Show headers at the top"
     echo "  input           The input file to read from, use - for stdout"
     exit 0
 }
@@ -19,8 +20,9 @@ PRINT_BINDS=false
 PRINT_PK_BIND_ONLY=false
 DECODE_PREPARED=false
 REQUEST_ONLY=false
+SHOW_HEADER=false
 
-while getopts ":hbkdr" opt; do
+while getopts ":hbkdrH" opt; do
     case $opt in
         h)
             usage
@@ -36,6 +38,9 @@ while getopts ":hbkdr" opt; do
             ;;
         r)
             REQUEST_ONLY=true
+            ;;
+        H)
+            SHOW_HEADER=true
             ;;
         \?)
             echo "Invalid option: -$OPTARG" >&2
@@ -54,5 +59,6 @@ export PRINT_BINDS
 export PRINT_PK_BIND_ONLY
 export DECODE_PREPARED
 export REQUEST_ONLY
+export SHOW_HEADER
 
 exec tshark -q -X lua_script:src/query_latency.lua -r ${INPUT}
