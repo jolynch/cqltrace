@@ -1,6 +1,11 @@
 #!/bin/bash
 set -uo pipefail
 
+echo "Current directory"
+echo ${PWD}
+echo "Files in this directory"
+find . -type f
+
 TESTS=$(find . -name *.in)
 
 for filename in $TESTS
