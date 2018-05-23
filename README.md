@@ -1,11 +1,12 @@
-# cqltrace
-A dynamic tracer for viewing CQL traffic in real time or offline later.
 [![Build Status](https://travis-ci.org/jolynch/cqltrace.svg?branch=master)](https://travis-ci.org/jolynch/cqltrace)
 
+# cqltrace
+A dynamic tracer for viewing CQL traffic in real time or offline later.
 This works using
 [`tshark`](https://www.wireshark.org/docs/man-pages/tshark.html)
 [lua plugins](https://wiki.wireshark.org/Lua), so you need `tshark` for this
-to work naturally. I've tested with 2.2.6+ and it seems to work.
+to work naturally (or you can run in docker, see below). I've tested with
+tshark 2.2.6+ and it should work.
 
 # Using it
 This provides two tools:
@@ -20,7 +21,9 @@ This tool takes as input a pcap file containing CQL traffic (or stdin via
 $ ./cqltrace -h
 Trace CQL traffic from a pcap file
 
-usage: cqltrace [-bkd] input
+usage: cqltrace [-p cql_port] [-bkdrH] input
+  -p cql_port     Decodes traffic on this port as CQL. Particularlly
+                  important for non standard CQL ports (9042)
   -b              Show bound variables in prepared statements [expensive]
   -k              Show just the bound partition keys (requires -b)
   -d              Decode prepared statements if possible
@@ -34,7 +37,7 @@ The output is always five fields separated by the `|` character. For normal
 statements you will see:
 
 ```
-<source_ip:source_port>|<query_id>|<consistency level>|BINDS=<bind1:bind2...>|<query time>
+<source_ip:source_port>|<query_id>|<consistency level>|BINDS=<bind1:bind2...>|<query latency>
 ```
 
 If running with `-d` the `QUERY_ID` will be replaced if possible with the
@@ -44,8 +47,11 @@ md5 hash of the statement). Also the program will output the following
 whenever it finds a prepared statement:
 
 ```
-<source_ip:source_port>|<query_id>|<statement being prepared>|PREPARE|<query time>
+<source_ip:source_port>|<query_id>|<statement being prepared>|PREPARE|<query latency>
 ```
+
+Note that when running with `-r` mode, instead of latency you'll get the
+packet number, which can be used offline to calcualte latencies and such.
 
 ## `cqlcap`
 This tool outputs a pcap file (or stdout via `-`) containing CQL traffic.
@@ -58,7 +64,7 @@ Capture live CQL traffic and output to a file
 usage: cqlcap [-h] [-i interface] [-p cql_port] [-v cql_version] output
   -i interface    Choose the interface (e.g. lo, eth0) to capture from
   -p cql_port     The tcp port CQL traffic is coming into (9042)
-  -v cql_version  The CQL version to sniff for (v4)
+  -v cql_version  The CQL version as an integer to sniff for (4)
   -h              Show this help message.
   -r              Captures just the requests. Much lower overhead,
                   but can only show the queries, no responses
@@ -70,7 +76,7 @@ usage: cqlcap [-h] [-i interface] [-p cql_port] [-v cql_version] output
 Live tracing of a CQL workload:
 
 ```
-$ sudo ./cqlcap - | ./cqltrace -H -b -k - 
+$ sudo ./cqlcap - | ./cqltrace -H -b -k -
 tcpdump: listening on lo, link-type EN10MB (Ethernet), capture size 262144 bytes
 Loading CQL Latency Tracer
 SOURCE IP|STATEMENT ID|CONSISTENCY LEVEL|BOUND VARIABLES|LATENCY127.0.0.1:41494|SELECT * FROM system.peers|ONE|BINDS=NA|0.001761000
@@ -214,3 +220,24 @@ $ docker build -t cqltrace .
 # In this case I assume the data is at /tmp/test.pcap
 $ docker run -it -v /tmp/test.pcap:/work/data.pcap cqltrace ./cqltrace -H /work/data.pcap
 ```
+
+# FAQ
+
+## I have no output even though there is no error?
+This usually means that you forgot to supply a non standard cql port using the
+`-p` option.
+
+## I get an error about fields not existing?
+You probably have a version of tshark that is too old. In such a situation I
+recommend running under Docker (see above)
+
+## Why two commands, this is awkward?
+It is split into two commands to separate the "real time" part from the
+"analysis" part. In the UNIX philosophy we have two tools that do one thing
+well and then we can compose them together to get live tracing. I highly
+recommend capturing and _then_ running cqltrace. Also this way the priviledges
+that are required to capture packets (`cqlcap`) do not have to be granted to
+the Lua code in the analysis tool (`cqltrace`). This is good, you don't want
+to run arbitrary lua code as root that you downloaded from the internet
+(but you can easily understand what the `cqlcap` tool is doing and even do it
+yourself if you don't trust it).

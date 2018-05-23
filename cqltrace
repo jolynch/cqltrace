@@ -6,7 +6,7 @@ function usage() {
     echo "Trace CQL traffic from a pcap file"
     echo
     echo "usage: cqltrace [-p cql_port] [-bkdrH] input"
-    echo "  -p              Decodes traffic on this port as CQL. Particularlly"
+    echo "  -p cql_port     Decodes traffic on this port as CQL. Particularlly"
     echo "                  important for non standard CQL ports (9042)"
     echo "  -b              Show bound variables in prepared statements [expensive]"
     echo "  -k              Show just the bound partition keys (requires -b)"
