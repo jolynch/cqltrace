@@ -5,7 +5,9 @@
 function usage() {
     echo "Trace CQL traffic from a pcap file"
     echo
-    echo "usage: cqltrace [-bkd] input"
+    echo "usage: cqltrace [-p cql_port] [-bkdrH] input"
+    echo "  -p              Decodes traffic on this port as CQL. Particularlly"
+    echo "                  important for non standard CQL ports (9042)"
     echo "  -b              Show bound variables in prepared statements [expensive]"
     echo "  -k              Show just the bound partition keys (requires -b)"
     echo "  -d              Decode prepared statements if possible"
@@ -16,14 +18,18 @@ function usage() {
     exit 0
 }
 
+PORT=9042
 PRINT_BINDS=false
 PRINT_PK_BIND_ONLY=false
 DECODE_PREPARED=false
 REQUEST_ONLY=false
 SHOW_HEADER=false
 
-while getopts ":hbkdrH" opt; do
+while getopts ":p:hbkdrH" opt; do
     case $opt in
+        p)
+            PORT=$OPTARG
+            ;;
         h)
             usage
             ;;
@@ -61,4 +67,4 @@ export DECODE_PREPARED
 export REQUEST_ONLY
 export SHOW_HEADER
 
-exec tshark -q -X lua_script:src/query_latency.lua -r ${INPUT}
+exec tshark -d tcp.port==$PORT,cql -q -X lua_script:src/query_latency.lua -r ${INPUT}
