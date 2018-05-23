@@ -200,3 +200,16 @@ be released under GPL. So this plugin is released under GPL. The one exception
 to this is the `lru.lua` implementation included under src, which is
 the work of Boris Nagaev and is Licensed under the MIT License (text included
 in the file itself).
+
+# Running with Docker
+
+If you're having trouble getting this to work with your various version of
+tshark and have docker installed you can just use that:
+
+```bash
+$ docker build -t cqltrace .
+# Copy a packet capture wherever, mount it into your container, and run
+# cqltrace on it
+# In this case I assume the data is at /tmp/test.pcap
+$ docker run -it -v /tmp/test.pcap:/work/data.pcap cqltrace ./cqltrace -H /work/data.pcap
+```

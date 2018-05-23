@@ -23,7 +23,7 @@ DECODE_PREPARED      If "True", decode prepared statements in the trace,
 local SHOW_HEADER = os.getenv('SHOW_HEADER') == "true"
 if SHOW_HEADER then
     io.stderr:write("Loading CQL Latency Tracer\n")
-    io.stderr:write("SOURCE IP|STATEMENT ID|CONSISTENCY LEVEL|BOUND VARIABLES|LATENCY")
+    io.stderr:write("SOURCE IP|STATEMENT ID|CONSISTENCY LEVEL|BOUND VARIABLES|LATENCY\n")
     io.stderr:flush()
 end
 
