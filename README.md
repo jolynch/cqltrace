@@ -1,5 +1,6 @@
 # cqltrace
 A dynamic tracer for viewing CQL traffic in real time or offline later.
+[![Build Status](https://travis-ci.org/jolynch/cqltrace.svg?branch=master)](https://travis-ci.org/jolynch/cqltrace)
 
 This works using
 [`tshark`](https://www.wireshark.org/docs/man-pages/tshark.html)
